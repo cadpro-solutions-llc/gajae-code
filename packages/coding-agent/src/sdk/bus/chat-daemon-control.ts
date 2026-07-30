@@ -16,7 +16,12 @@ import type {
 } from "../../daemon/control-types";
 import { resolveGjcRuntimeSpawnInfo } from "../../daemon/runtime";
 import { isProcessIncarnation, processIncarnation } from "../broker/process-incarnation";
-import { getNotificationConfig, isDiscordConfigured, isSlackConfigured } from "./config";
+import {
+	getNotificationConfig,
+	isDiscordComplete,
+	isProviderEffectivelyEnabled,
+	isSlackComplete,
+} from "./config";
 
 export type ChatDaemonKind = "discord" | "slack";
 export type ChatDaemonAction = "stop" | "reload";
@@ -40,12 +45,12 @@ export type ChatDaemonAction = "stop" | "reload";
  * daemon transports. Generation 16 applies Telegram sound-policy configuration
  * through shared notification parsing. Generation 17 bound managed-session
  * replacement to exact native filesystem authority; generation 18 retires that
- * binding (revert of #3489, which stalled POSIX artifact cleanup) while keeping
- * the lifecycle contract moving strictly forward.
+ * binding (revert of #3489, which stalled POSIX artifact cleanup); generation
+ * 19 adds durable provider-intent admission while preserving lifecycle behavior.
  */
 export const CHAT_DAEMON_GENERATIONS: Readonly<Record<ChatDaemonKind, number>> = {
-	discord: 18,
-	slack: 18,
+	discord: 19,
+	slack: 19,
 };
 
 export function chatDaemonGeneration(kind: ChatDaemonKind): number {
@@ -269,7 +274,7 @@ export function chatDaemonPaths(
 function identityFor(settings: Settings, kind: ChatDaemonKind): string | undefined {
 	const cfg = getNotificationConfig(settings);
 	if (kind === "discord") {
-		if (!isDiscordConfigured(cfg)) return undefined;
+		if (!isDiscordComplete(cfg)) return undefined;
 		return fingerprint([
 			cfg.discord.botToken,
 			cfg.discord.applicationId,
@@ -279,7 +284,7 @@ function identityFor(settings: Settings, kind: ChatDaemonKind): string | undefin
 			cfg.verbosity,
 		]);
 	}
-	if (!isSlackConfigured(cfg)) return undefined;
+	if (!isSlackComplete(cfg)) return undefined;
 	return fingerprint([
 		cfg.slack.botToken,
 		cfg.slack.appToken,
@@ -451,6 +456,8 @@ export class ChatDaemonController implements BuiltInDaemonController {
 		return await this.operate("reload", opts);
 	}
 	async ensure(): Promise<EnsureChatDaemonResult> {
+		const cfg = getNotificationConfig(this.settings);
+		if (!isProviderEffectivelyEnabled(cfg, this.kind)) return "disabled";
 		const identity = this.identity();
 		if (!identity) return "disabled";
 		const existing = await readChatDaemonState(this.settings.getAgentDir(), this.kind);
