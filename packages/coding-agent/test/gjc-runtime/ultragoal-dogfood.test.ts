@@ -1,5 +1,6 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { deflateSync } from "node:zlib";
 
@@ -12,24 +13,36 @@ import {
 const TEST_SESSION_ID = "test-session";
 const tempRoots: string[] = [];
 let savedSessionId: string | undefined;
+let savedCiDevChangedPaths: string | undefined;
 
 afterEach(async () => {
-	process.env.GJC_SESSION_ID = TEST_SESSION_ID;
 	await Promise.all(tempRoots.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })));
 });
 
 afterAll(() => {
 	if (savedSessionId === undefined) delete process.env.GJC_SESSION_ID;
 	else process.env.GJC_SESSION_ID = savedSessionId;
+	if (savedCiDevChangedPaths === undefined) delete process.env.CI_DEV_CHANGED_PATHS;
+	else process.env.CI_DEV_CHANGED_PATHS = savedCiDevChangedPaths;
 });
 
 beforeAll(() => {
 	savedSessionId = process.env.GJC_SESSION_ID;
+	savedCiDevChangedPaths = process.env.CI_DEV_CHANGED_PATHS;
+});
+
+beforeEach(() => {
 	process.env.GJC_SESSION_ID = TEST_SESSION_ID;
+	// Temp dirs live outside the enclosing git work tree (os.tmpdir) so
+	// computeCheckpointChangeSet falls through to the CI_DEV_CHANGED_PATHS-only
+	// path. Pin a non-computer path so the mandatory computer red-team suite is
+	// not falsely triggered by captureIncomplete or git-command timeouts under
+	// parallel shard load.
+	process.env.CI_DEV_CHANGED_PATHS = "packages/coding-agent/test/gjc-runtime/ultragoal-dogfood.test.ts";
 });
 
 async function tempDir(): Promise<string> {
-	const dir = await fs.mkdtemp(path.join(process.cwd(), ".tmp-ultragoal-dogfood-"));
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ultragoal-dogfood-"));
 	tempRoots.push(dir);
 	return dir;
 }

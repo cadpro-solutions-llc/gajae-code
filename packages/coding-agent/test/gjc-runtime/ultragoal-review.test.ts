@@ -1,5 +1,6 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { deflateSync } from "node:zlib";
 import { modeStatePath as sessionModeStatePath } from "@gajae-code/coding-agent/gjc-runtime/session-layout";
@@ -14,6 +15,7 @@ import {
 const TEST_SESSION_ID = "test-session";
 const tempRoots: string[] = [];
 let savedSessionId: string | undefined;
+let savedCiDevChangedPaths: string | undefined;
 
 async function runGit(cwd: string, args: string[]): Promise<void> {
 	const proc = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
@@ -27,11 +29,21 @@ async function runGit(cwd: string, args: string[]): Promise<void> {
 
 beforeAll(() => {
 	savedSessionId = process.env.GJC_SESSION_ID;
+	savedCiDevChangedPaths = process.env.CI_DEV_CHANGED_PATHS;
+});
+
+beforeEach(() => {
 	process.env.GJC_SESSION_ID = TEST_SESSION_ID;
+	// Temp dirs live outside the enclosing git work tree (os.tmpdir) and each
+	// inits its own standalone git repo. computeCheckpointChangeSet still
+	// merges CI_DEV_CHANGED_PATHS into the computed change set. Pin a
+	// non-computer path so the mandatory computer red-team suite is not falsely
+	// triggered; the dedicated CI-leak tests below override within their scope.
+	process.env.CI_DEV_CHANGED_PATHS = "packages/coding-agent/test/gjc-runtime/ultragoal-review.test.ts";
 });
 
 async function tempDir(): Promise<string> {
-	const dir = await fs.mkdtemp(path.join(process.cwd(), ".tmp-ultragoal-review-"));
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ultragoal-review-"));
 	tempRoots.push(dir);
 	await runGit(dir, ["init"]);
 	await runGit(dir, ["config", "user.email", "test@example.com"]);
@@ -43,15 +55,15 @@ async function tempDir(): Promise<string> {
 }
 
 afterEach(async () => {
-	process.env.GJC_SESSION_ID = TEST_SESSION_ID;
 	await Promise.all(tempRoots.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })));
 });
 
 afterAll(() => {
 	if (savedSessionId === undefined) delete process.env.GJC_SESSION_ID;
 	else process.env.GJC_SESSION_ID = savedSessionId;
+	if (savedCiDevChangedPaths === undefined) delete process.env.CI_DEV_CHANGED_PATHS;
+	else process.env.CI_DEV_CHANGED_PATHS = savedCiDevChangedPaths;
 });
-
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PNG_CRC_TABLE = new Uint32Array(256).map((_, index) => {
 	let crc = index;

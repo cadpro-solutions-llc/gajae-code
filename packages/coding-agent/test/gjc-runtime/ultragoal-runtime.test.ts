@@ -41,21 +41,29 @@ const tempRoots: string[] = [];
 
 let savedSessionId: string | undefined;
 let savedSessionFile: string | undefined;
+// Pin a non-computer test path as CI_DEV_CHANGED_PATHS for every test. Temp
+// dirs live outside the enclosing git work tree (os.tmpdir), so
+// computeCheckpointChangeSet falls through to the CI_DEV_CHANGED_PATHS-only
+// path — without a non-empty path it returns captureIncomplete=true which
+// unconditionally triggers the mandatory computer red-team suite even when no
+// computer surface was touched. batchTempDir overrides this with its own batch
+// paths; the explicit CI-leak tests override within their own scope.
+const ORIGINAL_CI_DEV_CHANGED_PATHS = process.env.CI_DEV_CHANGED_PATHS;
+const NON_COMPUTER_TEST_PATH = "packages/coding-agent/test/gjc-runtime/ultragoal-runtime.test.ts";
 
 beforeEach(() => {
 	savedSessionId = process.env.GJC_SESSION_ID;
 	savedSessionFile = process.env.GJC_SESSION_FILE;
 	process.env.GJC_SESSION_ID = TEST_SESSION_ID;
 	delete process.env.GJC_SESSION_FILE;
+	process.env.CI_DEV_CHANGED_PATHS = NON_COMPUTER_TEST_PATH;
 });
 
 async function tempDir(): Promise<string> {
-	const dir = await fs.mkdtemp(path.join(process.cwd(), ".tmp-ultragoal-runtime-"));
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ultragoal-runtime-"));
 	tempRoots.push(dir);
 	return dir;
 }
-
-let savedCiDevChangedPaths: { value: string | undefined } | undefined;
 
 /**
  * Root for validation-batch tests, hermetically OUTSIDE the enclosing git
@@ -69,7 +77,6 @@ let savedCiDevChangedPaths: { value: string | undefined } | undefined;
 async function batchTempDir(): Promise<string> {
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ultragoal-runtime-batch-"));
 	tempRoots.push(dir);
-	savedCiDevChangedPaths ??= { value: process.env.CI_DEV_CHANGED_PATHS };
 	process.env.CI_DEV_CHANGED_PATHS = batchChangeSetPaths()
 		.map(row => row.path)
 		.join("\n");
@@ -81,11 +88,8 @@ afterEach(async () => {
 	else process.env.GJC_SESSION_ID = savedSessionId;
 	if (savedSessionFile === undefined) delete process.env.GJC_SESSION_FILE;
 	else process.env.GJC_SESSION_FILE = savedSessionFile;
-	if (savedCiDevChangedPaths) {
-		if (savedCiDevChangedPaths.value === undefined) delete process.env.CI_DEV_CHANGED_PATHS;
-		else process.env.CI_DEV_CHANGED_PATHS = savedCiDevChangedPaths.value;
-		savedCiDevChangedPaths = undefined;
-	}
+	if (ORIGINAL_CI_DEV_CHANGED_PATHS === undefined) delete process.env.CI_DEV_CHANGED_PATHS;
+	else process.env.CI_DEV_CHANGED_PATHS = ORIGINAL_CI_DEV_CHANGED_PATHS;
 	await Promise.all(tempRoots.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })));
 });
 
