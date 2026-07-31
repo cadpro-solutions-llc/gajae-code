@@ -796,7 +796,15 @@ export class ManagedSessionDescendantStore {
 			const current = captureManagedFileNoFollow(resolved);
 			if (!sameIdentity(current.identity, expected.identity) || current.identity.sha256 !== expected.identity.sha256)
 				throw new Error("managed_replace_identity_mismatch");
-			replaceManagedFileSync(resolved, bytes, this.#subtreeRoot, this.#policy, () => fence.assertOwned());
+			replaceManagedFileSync(resolved, bytes, this.#subtreeRoot, this.#policy, () => {
+				fence.assertOwned();
+				const currentAtCommit = captureManagedFileNoFollow(resolved);
+				if (
+					!sameIdentity(currentAtCommit.identity, expected.identity) ||
+					currentAtCommit.identity.sha256 !== expected.identity.sha256
+				)
+					throw new Error("managed_replace_identity_mismatch");
+			});
 			fence.assertOwned();
 			return;
 		}
