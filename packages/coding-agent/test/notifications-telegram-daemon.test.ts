@@ -2911,14 +2911,14 @@ describe("telegram daemon", () => {
 			}),
 		);
 	}
-	test("keeps wire protocol 3 through generation 38 provider-intent and cleanup authority", () => {
+	test("keeps wire protocol 3 through generation 39 provider-intent and cleanup authority", () => {
 		expect(NOTIFICATION_PROTOCOL_VERSION).toBe(3);
 		// Generations 34 and 35 add media conversion and topic adoption; generation
 		// 36 bound managed-session replacement to exact native filesystem authority,
-		// generation 37 retired that binding, and generation 38 adds durable provider
-		// intent while binding exact cleanup to parent and link-count authority without
-		// changing the wire protocol.
-		expect(DAEMON_GENERATION).toBe(38);
+		// generation 37 retired that binding; generation 38 added durable provider
+		// intent and exact cleanup parent/link-count authority; generation 39 combines
+		// those contracts on current dev without changing the wire protocol.
+		expect(DAEMON_GENERATION).toBe(39);
 	});
 	test.each([
 		"1",

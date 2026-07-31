@@ -53,7 +53,7 @@ export const NOTIFICATION_PROTOCOL_VERSION = 3;
  * cleanup to parent and link-count authority without changing owner, reclaim,
  * signal, spawn, or wire-protocol authority.
  */
-export const DAEMON_GENERATION = 38;
+export const DAEMON_GENERATION = 39;
 
 /**
  * Serving-compatibility boundary for daemon lifecycle requests. Epoch 1 covers
