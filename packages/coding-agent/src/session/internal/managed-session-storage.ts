@@ -137,7 +137,15 @@ export interface ManagedStorageLock {
 
 export interface ManagedFileSnapshot {
 	bytes: Buffer;
-	identity: { dev: bigint; ino: bigint; size: number; mtimeNs: bigint; ctimeNs: bigint; sha256: string };
+	identity: {
+		dev: bigint;
+		ino: bigint;
+		nlink: bigint;
+		size: number;
+		mtimeNs: bigint;
+		ctimeNs: bigint;
+		sha256: string;
+	};
 }
 
 const ACL_FAILURE_CODES = new Set(["acl_denied", "acl_io_error", "acl_present", "acl_malformed", "acl_unknown"]);
@@ -1016,6 +1024,7 @@ export class ManagedSessionDescendantStore {
 			identity: {
 				dev: BigInt(read.identity.dev),
 				ino: BigInt(read.identity.ino),
+				nlink: BigInt(read.identity.nlink),
 				size: Number(read.identity.size),
 				mtimeNs: BigInt(read.identity.mtimeNs),
 				ctimeNs: BigInt(read.identity.ctimeNs),
@@ -1306,6 +1315,7 @@ function identity(stat: fs.BigIntStats, sha256 = ""): ManagedFileSnapshot["ident
 	return {
 		dev: stat.dev,
 		ino: stat.ino,
+		nlink: stat.nlink,
 		size: Number(stat.size),
 		mtimeNs: stat.mtimeNs,
 		ctimeNs: stat.ctimeNs,
@@ -1317,6 +1327,7 @@ function sameIdentity(left: ManagedFileSnapshot["identity"], right: ManagedFileS
 	return (
 		left.dev === right.dev &&
 		left.ino === right.ino &&
+		left.nlink === right.nlink &&
 		left.size === right.size &&
 		left.mtimeNs === right.mtimeNs &&
 		left.ctimeNs === right.ctimeNs
