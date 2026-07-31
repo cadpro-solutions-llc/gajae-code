@@ -1653,6 +1653,7 @@ export function replaceManagedFileSync(
 	const staging = path.join(parent, `.${path.basename(destination)}.${randomUUID()}.replacement`);
 	let fd: number | undefined;
 	let stagedIdentity: { dev: bigint; ino: bigint } | undefined;
+	let preserveStaging = false;
 	try {
 		assertFence?.();
 		fd = fs.openSync(
@@ -1707,6 +1708,7 @@ export function replaceManagedFileSync(
 						mtimeNs: staged.mtimeNs,
 						sha256: createHash("sha256").update(bytes).digest("hex"),
 					});
+					if (restored.ok) preserveStaging = true;
 					if (!restored.ok)
 						throw new Error(
 							`managed_replace_failed:${replaced.code ?? "unknown"}:retained=${replaced.detachedPath}:restore=${restored.code ?? "unknown"}`,
@@ -1727,7 +1729,7 @@ export function replaceManagedFileSync(
 		fsyncDirectory(parent);
 	} finally {
 		if (fd !== undefined) fs.closeSync(fd);
-		if (stagedIdentity) {
+		if (stagedIdentity && !preserveStaging) {
 			try {
 				const named = fs.lstatSync(staging, { bigint: true });
 				if (named.dev === stagedIdentity.dev && named.ino === stagedIdentity.ino) fs.unlinkSync(staging);
