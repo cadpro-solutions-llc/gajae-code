@@ -16,12 +16,7 @@ import type {
 } from "../../daemon/control-types";
 import { resolveGjcRuntimeSpawnInfo } from "../../daemon/runtime";
 import { isProcessIncarnation, processIncarnation } from "../broker/process-incarnation";
-import {
-	getNotificationConfig,
-	isDiscordComplete,
-	isProviderEffectivelyEnabled,
-	isSlackComplete,
-} from "./config";
+import { getNotificationConfig, isDiscordComplete, isProviderEffectivelyEnabled, isSlackComplete } from "./config";
 
 export type ChatDaemonKind = "discord" | "slack";
 export type ChatDaemonAction = "stop" | "reload";
@@ -46,11 +41,13 @@ export type ChatDaemonAction = "stop" | "reload";
  * through shared notification parsing. Generation 17 bound managed-session
  * replacement to exact native filesystem authority; generation 18 retires that
  * binding (revert of #3489, which stalled POSIX artifact cleanup); generation
- * 19 adds durable provider-intent admission while preserving lifecycle behavior.
+ * 19 adds durable provider-intent admission while preserving lifecycle behavior;
+ * generation 20 discovers isolated chat-only session endpoints when Telegram
+ * identity ownership is blocked.
  */
 export const CHAT_DAEMON_GENERATIONS: Readonly<Record<ChatDaemonKind, number>> = {
-	discord: 19,
-	slack: 19,
+	discord: 20,
+	slack: 20,
 };
 
 export function chatDaemonGeneration(kind: ChatDaemonKind): number {
@@ -429,6 +426,9 @@ export class ChatDaemonController implements BuiltInDaemonController {
 	private identity(): string | undefined {
 		return identityFor(this.settings, this.kind);
 	}
+	private effectivelyEnabled(): boolean {
+		return isProviderEffectivelyEnabled(getNotificationConfig(this.settings), this.kind);
+	}
 	private alive(pid: number): boolean {
 		return (this.deps.pidAlive ?? defaultPidAlive)(pid);
 	}
@@ -456,8 +456,7 @@ export class ChatDaemonController implements BuiltInDaemonController {
 		return await this.operate("reload", opts);
 	}
 	async ensure(): Promise<EnsureChatDaemonResult> {
-		const cfg = getNotificationConfig(this.settings);
-		if (!isProviderEffectivelyEnabled(cfg, this.kind)) return "disabled";
+		if (!this.effectivelyEnabled()) return "disabled";
 		const identity = this.identity();
 		if (!identity) return "disabled";
 		const existing = await readChatDaemonState(this.settings.getAgentDir(), this.kind);
@@ -490,6 +489,9 @@ export class ChatDaemonController implements BuiltInDaemonController {
 		const warnings = before.runtime.warning ? [before.runtime.warning] : [];
 		if (!before.configured)
 			return this.result(action, false, `${this.kind} notifications are not configured`, before, before, warnings);
+		if (action === "reload" && !this.effectivelyEnabled()) {
+			return this.result(action, false, `${this.kind} notifications are not enabled`, before, before, warnings);
+		}
 		const state = await readChatDaemonState(this.settings.getAgentDir(), this.kind);
 		const classification = this.classify(state, this.identity());
 		if (classification === "newer")
@@ -525,6 +527,8 @@ export class ChatDaemonController implements BuiltInDaemonController {
 			}
 			if (opts.spawnIfStopped === false)
 				return this.result(action, true, `no running ${this.kind} daemon to reload`, before, before, warnings);
+			if (!this.effectivelyEnabled())
+				return this.result(action, false, `${this.kind} notifications are not enabled`, before, before, warnings);
 			const spawned = await this.spawn();
 			return this.result(
 				action,
@@ -578,6 +582,15 @@ export class ChatDaemonController implements BuiltInDaemonController {
 		await clearChatDaemonControlRequest(this.settings.getAgentDir(), this.kind, requestId);
 		if (action === "stop")
 			return this.result(action, true, `stopped ${this.kind} daemon`, before, await this.status(), warnings);
+		if (!this.effectivelyEnabled())
+			return this.result(
+				action,
+				false,
+				`${this.kind} notifications are not enabled`,
+				before,
+				await this.status(),
+				warnings,
+			);
 		const spawned = await this.spawn();
 		return this.result(
 			action,
@@ -755,6 +768,7 @@ export class ChatDaemonController implements BuiltInDaemonController {
 		return this.deps.sleep ? this.deps.sleep(ms) : new Promise(resolve => setTimeout(resolve, ms));
 	}
 	private async spawn(): Promise<boolean> {
+		if (!this.effectivelyEnabled()) return false;
 		const identity = this.identity();
 		if (!identity) return false;
 		const paths = chatDaemonPaths(this.settings.getAgentDir(), this.kind);
@@ -771,6 +785,7 @@ export class ChatDaemonController implements BuiltInDaemonController {
 			agentDir: this.settings.getAgentDir(),
 			execPath: this.deps.execPath,
 		});
+		if (!this.effectivelyEnabled() || this.identity() !== identity) return false;
 		(this.deps.spawn ?? ((command, args, opts) => childProcessSpawn(command, args, opts)))(command, args, {
 			detached: true,
 			stdio: "ignore",

@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+
+- Notification settings now expose first-class Telegram, Discord, and Slack configuration, desired-intent toggles, provider-local quarantine and repair guidance, explicit `keep | replace | remove` secret actions, provider-specific health/test diagnostics, and truthful saved-but-runtime-degraded outcomes. The global master preserves provider credentials and intent, `GJC_NOTIFICATIONS=0` suppresses only automatic generic-session admission, and blocked Telegram ownership uses an isolated chat-only endpoint so verified Discord or Slack siblings can continue without exposing the shared endpoint.
+
 ### Fixed
 
 - Deferred `agent_end` publication again settles public session readiness before slow extension handlers finish, while retaining exact cancellation leases through queued extension delivery and draining that delivery before session shutdown.
