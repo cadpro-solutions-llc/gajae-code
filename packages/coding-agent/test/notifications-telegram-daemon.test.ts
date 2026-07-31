@@ -2917,8 +2917,9 @@ describe("telegram daemon", () => {
 		// 36 bound managed-session replacement to exact native filesystem authority,
 		// generation 37 retired that binding, generation 38 bound exact cleanup to
 		// parent/link-count authority, and generation 39 hardens exact Bash process
-		// ownership without changing the wire protocol.
-		expect(DAEMON_GENERATION).toBe(39);
+		// ownership without changing the wire protocol; generation 40 binds the final
+		// parent-fenced native cleanup authority.
+		expect(DAEMON_GENERATION).toBe(40);
 	});
 	test.each([
 		"1",

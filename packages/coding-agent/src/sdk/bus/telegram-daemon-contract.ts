@@ -53,7 +53,7 @@ export const NOTIFICATION_PROTOCOL_VERSION = 3;
  * generation 39 hardens exact Bash process-tree ownership, settlement, and
  * descendant cleanup authority.
  */
-export const DAEMON_GENERATION = 39;
+export const DAEMON_GENERATION = 40;
 
 /**
  * Serving-compatibility boundary for daemon lifecycle requests. Epoch 1 covers

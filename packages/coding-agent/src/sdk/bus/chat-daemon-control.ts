@@ -45,8 +45,8 @@ export type ChatDaemonAction = "stop" | "reload";
  * exact Bash process-tree ownership shared by chat daemon cleanup.
  */
 export const CHAT_DAEMON_GENERATIONS: Readonly<Record<ChatDaemonKind, number>> = {
-	discord: 21,
-	slack: 21,
+	discord: 22,
+	slack: 22,
 };
 
 export function chatDaemonGeneration(kind: ChatDaemonKind): number {
