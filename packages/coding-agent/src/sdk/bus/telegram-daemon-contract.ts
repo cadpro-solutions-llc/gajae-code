@@ -49,8 +49,9 @@ export const NOTIFICATION_PROTOCOL_VERSION = 3;
  * user-created topic adoption (forum-topic folder picker). Generation 36 bound
  * managed-session replacement to exact native filesystem authority; generation
  * 37 retires that binding (revert of #3489, which stalled POSIX artifact
- * cleanup); generation 38 adds durable provider-intent admission without
- * changing owner, reclaim, signal, or spawn authority.
+ * cleanup); generation 38 adds durable provider-intent admission and binds exact
+ * cleanup to parent and link-count authority without changing owner, reclaim,
+ * signal, spawn, or wire-protocol authority.
  */
 export const DAEMON_GENERATION = 38;
 
