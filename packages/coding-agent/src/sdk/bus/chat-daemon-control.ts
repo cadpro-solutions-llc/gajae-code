@@ -45,8 +45,8 @@ export type ChatDaemonAction = "stop" | "reload";
  * chat-only session endpoints when Telegram identity ownership is blocked.
  */
 export const CHAT_DAEMON_GENERATIONS: Readonly<Record<ChatDaemonKind, number>> = {
-	discord: 20,
-	slack: 20,
+	discord: 21,
+	slack: 21,
 };
 
 export function chatDaemonGeneration(kind: ChatDaemonKind): number {
